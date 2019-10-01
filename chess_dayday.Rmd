@@ -8,7 +8,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ## install and load the necessary packages
-
+library("tidyverse")
+library("janitor")
+library("skimr")
 ```
 
 *Note*: If you try to Knit this document at this time, you *will* get an error because there is code in this document that has to be edited (by you!) before it will be able to successfully knit!
@@ -89,7 +91,7 @@ Let's get to the project. Make sure you have loaded the necessary packages for t
 Import the data into R using the `readr` package and then use the package `janitor` to clean the column names. Write your code in the code chunk below.
 
 ```{r}
-chess <- read_csv("data/tidy_data/games.csv") %>%   
+chess <- read_csv("data/tidy_data/games.csv") %>%  
  clean_names()
 ```
 
@@ -126,8 +128,8 @@ Use ggplot to show a histogram of the number of turns in the finished games.
 
 ```{r}
 finished_games %>%
-ggplot(finished_games, aes(x=turns)+
-geom_histogram()
+ggplot()+
+geom_histogram(aes(x=turns))
     
 ```
 
@@ -143,9 +145,8 @@ The first-move advantage in chess is the inherent advantage of the player (White
 Does your data support this hypothesis? Show this in a pie chart. In your pie chart, change the color of the `white` group to white, the color of the `black` group to black, and the color of the `draw` group to grey.
 
 ```{r}
-pie(x=100,labels = finished_games$winner,names(c("white,black,draw")), edges = 300, radius = 0.8,clockwise = TRUE, init.angle = if(clockwise) 90 else 0,
-      density = NULL, angle = 45, col = "black", border = "brown",
-  lty = NULL, main = NULL,)
+ finished_games %>% group_by(winner) %>% 
+  summarise(n=n()) %>% ggplot(aes(x="", y=n, fill=winner)) + geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + scale_fill_manual(values=c("black", "grey", "white")) + theme_minimal()
 ```
 
 
@@ -156,13 +157,11 @@ In your data, what are the most popular opening moves? Show a bar plot using ggp
 
 
     ```{r}
-
-  finished_games %>% group_by(opening_name) %>% 
+finished_games %>% group_by(opening_name) %>% 
   summarise(n=n())%>% 
-  arrange(desc(n)) %>% 
+  arrange(desc(n)) %>% top_n(10) %>% 
   ggplot()+
-  geom_bar(aes(x=(finished_games$opening_name),y=
-                 top_n(opening_name))
+  geom_col(aes(x=n,y=opening_name))
     
 ```
 
@@ -199,11 +198,9 @@ In the data, users are rated based on their previous games. The higher the ratin
 
 
 ```{r}
-players <- finished_games[,c("winner",
-                    "black_rating",
-                    "white_rating",
-                    "turns",
-                    "opening_ply")]
+players <- finished_games %>% 
+  filter(winner != "draw") %>% 
+  select(winner,black_rating,white_rating,turns,opening_ply) %>% gather(color, rating, black_rating:white_rating, factor_key=TRUE) %>% mutate(win = ifelse((winner == "white" & color == "white_rating") | (winner == "black" & color == "black_rating"), 1, 0))
 
 ```
 
@@ -214,35 +211,30 @@ How many rows are in the new data frame? Why is it more than the previous data f
 dim(players)
 ```
 
-Using the data you just created, show two denisty functions (using geom_density) of ratings on the same graph: one for the winners and one for the losers ignoring the games that end as draw. Are the winners' ratings higher than the losers?
+Using the data you just created, show two denisty functions (using geom_density) of ratings on the same graph: one for the winners and one for the losers ignoring the games that end as draw. Are the winners' ratings higher than the losers?Yes
 
 ```{r}
-players %>% gplot(,aes(x=winner)+
-   geom_density(stat=density))
-    
+players %>% ggplot(aes(x=rating, fill = as.factor(win)))+
+  geom_density( alpha=0.5)
+      
 ```
 
 
-Filter your players data to only include those who won. Do you find a correlation between the plater's rating and the number of turns it takes them to win? Find the correlation coefficient and show this in a scatter plot. Do you see a high correlation?
+Filter your players data to only include those who won. Do you find a correlation between the plater's rating and the number of turns it takes them to win? Find the correlation coefficient and show this in a scatter plot. Do you see a high correlation?NO
 
 ```{r}
-plot1<-ggplot(data=players,aes(x=turns,
-                            y=white_rating))+  
-  geom_point()+geom_smooth(method = "lm")
+players %>% filter(win != 0) %>% 
+ggplot(aes(x=rating,y=turns))+
+  geom_point(alpha = 0.5)+geom_smooth(method = "lm",se = FALSE)
 
-plot2<-ggplot(data=players,aes(x=turns,
-                        y=black_rating))+  
-  geom_point()+geom_smooth(method = "lm")
-
-grid.arrange(plot1,plot2,ncol=2)
-
+cor(players$rating,players$turns)
 ```
 
 
 Read the lesson on inferential analysis. We are using linear regression to find what factors determine the probability of winning a game. Use the variable indicating whether the player wins or not as the dependent variables (Y) and rating, color of the player's piece, and the opening ply. Make sure to use the color as factor.
 
 ```{r}
-fin<- lm(winner ~  rating , data = players)
+ lm(win~rating,data = players, as.factor(color))
 ```
 
 Answer the following questions based on your regression result.

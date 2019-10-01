@@ -5,7 +5,7 @@ players<-finished_games[,c("winner",
                     "white_rating",
                     "turns",
                     "opening_ply")]
-
+players
 finished_games %>% 
   filter(victory_status !=  "resign")
 finished_games<- finished_games %>% filter(victory_status!= "draw")
@@ -33,7 +33,8 @@ Call this new data frame `players`.
 
 
 
-
+olddata_wide, condition, measurement, control:cond2, factor_key=TRUE)
+data_long
 
 
 
